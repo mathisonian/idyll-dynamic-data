@@ -1,0 +1,111 @@
+[meta title:"Dynamic Data" description:"Short description of your project" /]
+
+[Header
+  fullWidth:true
+  title:"Dynamic Data Loading"
+  subtitle:"How to load data into Idyll posts at runtime."
+  author:"Matthew Conlen"
+  authorLink:"https://mathisonian.com"
+  date:`(new Date()).toDateString()`
+  background:"#222222"
+  color:"#ffffff"
+   /]
+
+## Introduction
+
+While Idyll provides a convenient way to load data into your article through
+the `[data /]` tag, sometimes you may want to defer loading data until after the
+web page has loaded for performance reasons.
+
+In this case, you can put your data inside of the `static/` folder (instead of the `data/` folder
+where it would typically go). Any files in the static folder are made available over the network when the
+page is running, allowing you to dynamically fetch the necessary data and add it to the page while
+avoiding big up-front load times.
+
+## Example
+
+Here's a quick example, using data from https://github.com/fivethirtyeight/data. I've downloaded a CSV file,
+and put it in my local static folder. Now I've set up some components to dynamically load that data
+and put it into a `[Table /]` once available. The data won't load until you click the button below.
+
+[var name:"myDynamicData" value:`[]` /]
+[var name:"shouldLoad" value:`false` /]
+
+[DataLoader value:myDynamicData src:"./static/airline-safety.csv" load:shouldLoad /]
+
+Data length: [Display value:`myDynamicData.length` format:"d"/]
+
+[Button onClick:`shouldLoad = true `]
+  Load Data
+[/Button]
+
+[br/]
+
+[Table data:myDynamicData /]
+
+## Implementation
+
+Here's what the markup for the above looks like:
+
+```
+[var name:"myDynamicData" value:`[]` /]
+[var name:"shouldLoad" value:`false` /]
+
+[DataLoader value:myDynamicData src:"./static/airline-safety.csv" load:shouldLoad /]
+
+Data length: [Display value:`myDynamicData.length` format:"d"/]
+
+[Button onClick:`shouldLoad = true `]
+  Load Data
+[/Button]
+
+[br/]
+
+[Table data:myDynamicData /]
+```
+
+I've created one variable, `myDynamicData`, to hold the value of the dataset, and another `shouldLoad` to tell
+my component when to load the data. Notice that `shouldLoad` is set to `true` once the button is clicked.
+
+The only thing that's missing is the `DataLoader` component. This is a very small component (~30 lines of code) that
+performs a network request and updates its `value` once the data has been loaded. Note that this isn't a built-in Idyll
+component, I've just created it to make this example work.
+
+The full code for the component is below:
+
+```javascript
+const React = require('react');
+const D3Component = require('idyll-d3-component');
+const d3 = require('d3');
+
+class DataLoader extends D3Component {
+
+  loadData(props) {
+    fetch(props.src)
+      .then((response) => {
+        return response.text();
+      }).then((text) => {
+        const parsed = d3.csvParse(text);
+        props.updateProps({ value: parsed });
+      })
+  }
+
+  initialize(node, props) {
+    if (props.load) {
+      this.loadData(props);
+    }
+  }
+
+  update(props, oldProps) {
+    if (props.load) {
+      this.loadData(props);
+    }
+  }
+}
+
+module.exports = DataLoader;
+```
+
+Feel free to re-use and adapt this component to suit your needs. The full source for this
+post is available at [https://github.com/mathisonian/idyll-dynamic-data](https://github.com/mathisonian/idyll-dynamic-data).
+
